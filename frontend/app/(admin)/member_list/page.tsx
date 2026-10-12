@@ -43,11 +43,6 @@ export default function StudentManagement() {
 
       const data = await response.json();
 
-      console.log("관리자 학생 목록 응답", {
-        url: `${apiBaseUrl}/admin/students?page=${page}`,
-        status: response.status,
-        data,
-      });
 
       if (!response.ok) {
         alert(data.detail ?? `회원 목록을 불러오지 못했습니다. (${response.status})`);

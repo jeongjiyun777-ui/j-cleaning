@@ -275,7 +275,6 @@ export default function Page() {
 
       if (response.ok) {
         if (isDraft) {
-          console.log("임시저장 응답:", result);
           alert(result.message ?? "임시저장되었습니다.");
           if (typeof result.draft?.id === "number") {
             setEditingDraftId(result.draft.id);
