@@ -1,0 +1,63 @@
+CREATE TABLE managers (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    name VARCHAR(15) NOT NULL,
+
+    username VARCHAR(254) NOT NULL UNIQUE,
+
+    password_hash TEXT NOT NULL,
+
+    role VARCHAR(20) NOT NULL
+        DEFAULT '관리자',
+
+    memo TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL
+        DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMPTZ NOT NULL
+        DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE customers (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    name VARCHAR(15) NOT NULL,
+
+    username VARCHAR(254) NOT NULL UNIQUE,
+
+    password_hash TEXT NOT NULL,
+
+    birth_date DATE NOT NULL,
+
+    phone VARCHAR(11) NOT NULL UNIQUE
+        CHECK (phone ~ '^010[0-9]{8}$'),
+
+    memo TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL
+        DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMPTZ NOT NULL
+        DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE notices (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    
+    title VARCHAR(70) NOT NULL,
+
+    content TEXT NOT NULL,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'published'
+        CHECK (status IN ('draft', 'published')),
+
+    is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
+
+    view_count INTEGER NOT NULL DEFAULT 0,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
