@@ -507,6 +507,24 @@ def send_registration_emails(
     )
 
 
+def send_estimate_admin_notification(customer_email: str, estimate_content: str):
+    admin_email = os.getenv("ADMIN_NOTIFICATION_EMAIL", "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", admin_email):
+        print("관리자 견적 알림 메일 생략: ADMIN_NOTIFICATION_EMAIL 설정 확인 필요", flush=True)
+        return
+
+    customer_email = customer_email.strip()
+    admin_message = EmailMessage()
+    admin_message["Subject"] = "제이클리닝 신규 예상 견적 요청 알림"
+    admin_message["To"] = admin_email
+    admin_message.set_content(
+        f"{customer_email} 고객님이 예상 견적 결과의 이메일 발송을 요청했습니다.\n\n"
+        f"고객 이메일: {customer_email}\n\n"
+        + estimate_content
+    )
+    send_email_in_background(admin_message)
+
+
 @app.post("/estimate/email", status_code=status.HTTP_202_ACCEPTED)
 def email_estimate(
     request: EstimateEmailRequest,
@@ -557,6 +575,11 @@ def email_estimate(
     background_tasks.add_task(
         send_email_in_background,
         email_message,
+    )
+    background_tasks.add_task(
+        send_estimate_admin_notification,
+        request.recipient_email.strip(),
+        email_message.get_content(),
     )
 
     return {"message": "견적 이메일 전송 요청을 접수했습니다. 잠시 후 받은 편지함을 확인해 주세요."}
