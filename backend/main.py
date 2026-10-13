@@ -487,9 +487,9 @@ def send_registration_emails(
         customer_message,
     )
 
-    admin_email = ADMIN_USERNAME.strip().lower()
+    admin_email = os.getenv("ADMIN_NOTIFICATION_EMAIL", "").strip().lower()
     if not re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", admin_email):
-        print("관리자 가입 알림 메일 생략: ADMIN_USERNAME 이메일 형식 확인 필요", flush=True)
+        print("관리자 가입 알림 메일 생략: ADMIN_NOTIFICATION_EMAIL 설정 확인 필요", flush=True)
         return
 
     admin_message = EmailMessage()
