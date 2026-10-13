@@ -6,8 +6,6 @@ from fastapi import BackgroundTasks, HTTPException, status, Depends
 from sqlalchemy import bindparam, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from email.message import EmailMessage
-import smtplib
-import ssl
 
 import os
 import jwt
@@ -435,30 +433,33 @@ def get_estimate(request: Annotated[EstimateRequest, Query()]):
     }
 
 
-def send_email_in_background(
-    smtp_server: str,
-    smtp_port: int,
-    smtp_user: str,
-    smtp_password: str,
-    email_message: EmailMessage,
-):
+def send_email_in_background(email_message: EmailMessage):
+    api_key = os.getenv("BREVO_API_KEY", "").strip()
+    sender_email = os.getenv("BREVO_SENDER_EMAIL", "").strip()
+    sender_name = os.getenv("BREVO_SENDER_NAME", "제이클리닝").strip() or "제이클리닝"
+    if not api_key or not sender_email:
+        print("이메일 발송 실패: Brevo 설정 누락", flush=True)
+        return
+
     try:
-        if smtp_port == 465:
-            with smtplib.SMTP_SSL(
-                smtp_server,
-                smtp_port,
-                timeout=15,
-                context=ssl.create_default_context(),
-            ) as server:
-                server.login(smtp_user, smtp_password)
-                server.send_message(email_message)
-        else:
-            with smtplib.SMTP(smtp_server, smtp_port, timeout=15) as server:
-                server.starttls(context=ssl.create_default_context())
-                server.login(smtp_user, smtp_password)
-                server.send_message(email_message)
-        print("이메일 발송 완료", flush=True)
-    except Exception as error:
+        response = requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={"api-key": api_key, "Accept": "application/json"},
+            json={
+                "sender": {"email": sender_email, "name": sender_name},
+                "to": [{"email": str(email_message["To"]).strip()}],
+                "subject": str(email_message["Subject"]),
+                "textContent": email_message.get_content(),
+            },
+            timeout=(5, 15),
+            allow_redirects=False,
+        )
+        if response.status_code != 201:
+            # Do not log API keys, recipients, message contents, or provider bodies.
+            print(f"이메일 발송 실패: Brevo HTTP {response.status_code}", flush=True)
+            return
+        print("이메일 발송 요청 접수 완료: Brevo", flush=True)
+    except requests.RequestException as error:
         print(f"이메일 발송 실패: {type(error).__name__}", flush=True)
 
 
@@ -468,22 +469,12 @@ def send_registration_emails(
     customer_id: int,
     created_at: str,
 ):
-    smtp_server = os.getenv("SMTP_SERVER", "").strip()
-    smtp_user = os.getenv("SMTP_USER", "").strip()
-    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
-    try:
-        smtp_port = int(os.getenv("SMTP_PORT", "465"))
-    except ValueError:
-        print("회원가입 안내 이메일 발송 실패: SMTP 설정 오류", flush=True)
-        return
-
-    if not all((smtp_server, smtp_user, smtp_password)):
-        print("회원가입 안내 이메일 발송 실패: SMTP 설정 누락", flush=True)
+    if not all(os.getenv(key, "").strip() for key in ("BREVO_API_KEY", "BREVO_SENDER_EMAIL")):
+        print("회원가입 안내 이메일 발송 실패: Brevo 설정 누락", flush=True)
         return
 
     customer_message = EmailMessage()
     customer_message["Subject"] = "제이클리닝 회원가입이 완료되었습니다"
-    customer_message["From"] = smtp_user
     customer_message["To"] = customer_email
     customer_message.set_content(
         f"안녕하세요, {name} 회원님.\n\n"
@@ -493,10 +484,6 @@ def send_registration_emails(
         "제이클리닝 드림"
     )
     send_email_in_background(
-        smtp_server,
-        smtp_port,
-        smtp_user,
-        smtp_password,
         customer_message,
     )
 
@@ -507,7 +494,6 @@ def send_registration_emails(
 
     admin_message = EmailMessage()
     admin_message["Subject"] = "제이클리닝 신규 회원가입 알림"
-    admin_message["From"] = smtp_user
     admin_message["To"] = admin_email
     admin_message.set_content(
         f"{ADMIN_NAME.strip()} 관리자님, 신규 회원가입이 완료되었습니다.\n\n"
@@ -517,10 +503,6 @@ def send_registration_emails(
         f"가입 일시: {created_at}\n"
     )
     send_email_in_background(
-        smtp_server,
-        smtp_port,
-        smtp_user,
-        smtp_password,
         admin_message,
     )
 
@@ -530,18 +512,7 @@ def email_estimate(
     request: EstimateEmailRequest,
     background_tasks: BackgroundTasks,
 ):
-    smtp_server = os.getenv("SMTP_SERVER", "").strip()
-    try:
-        smtp_port = int(os.getenv("SMTP_PORT", "465"))
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="이메일 발송 설정이 올바르지 않습니다.",
-        ) from error
-    smtp_user = os.getenv("SMTP_USER", "").strip()
-    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
-
-    if not all((smtp_server, smtp_user, smtp_password)):
+    if not all(os.getenv(key, "").strip() for key in ("BREVO_API_KEY", "BREVO_SENDER_EMAIL")):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="이메일 발송 설정이 완료되지 않았습니다.",
@@ -572,7 +543,6 @@ def email_estimate(
 
     email_message = EmailMessage()
     email_message["Subject"] = "제이클리닝 예상 견적 결과"
-    email_message["From"] = smtp_user
     email_message["To"] = request.recipient_email
     email_message.set_content(
         "안녕하세요. 제이클리닝 예상 견적 결과입니다.\n\n"
@@ -586,10 +556,6 @@ def email_estimate(
 
     background_tasks.add_task(
         send_email_in_background,
-        smtp_server,
-        smtp_port,
-        smtp_user,
-        smtp_password,
         email_message,
     )
 
