@@ -37,7 +37,7 @@ const Header = () => {
   };
   return (
     <header className="relative sticky top-0 z-50 w-full bg-white border-b border-slate-200 shadow-sm">
-      <div className="mx-auto flex h-20 w-full max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6 md:h-24 lg:px-8 xl:px-12">
+      <div className="mx-auto flex h-20 w-full max-w-[1440px] items-center justify-start gap-2 px-3 sm:px-4 md:h-24 md:justify-between md:gap-3 md:px-6 lg:px-8 xl:px-12">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="shrink-0 rounded-md p-2 text-slate-600 hover:text-teal-700 focus:outline-none md:hidden"
@@ -693,7 +693,7 @@ const Header = () => {
       )}
 
 
-        <div className="flex shrink-0 items-center gap-3 md:gap-5 xl:gap-8">
+        <div className="ml-auto flex shrink-0 items-center gap-3 md:ml-0 md:gap-5 xl:gap-8">
           <div className="flex items-center gap-2 text-slate-600 sm:gap-3 lg:gap-4">
             {user ? (
               <div className="group relative shrink-0 whitespace-nowrap">
