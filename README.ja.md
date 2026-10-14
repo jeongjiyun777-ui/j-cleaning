@@ -1,62 +1,60 @@
-# J-CLEANING | 清掃見積もりポートフォリオ
+# J-CLEANING | 清掃の概算見積りと依頼通知
 
 [한국어](README.md) · [English](README.en.md) · [日本語](README.ja.md)
 
-> 個人ポートフォリオです。見積もりは参考用です。実際の個人情報ではなくテストデータを使用してください。
+[公開サイト](https://j-cleaning.vercel.app/)
 
-### 概要
+清掃の種類と場所を選ぶと概算金額を表示し、希望するお客様に結果をメールで送るWebサービスです。事業者にも依頼内容を通知し、その後の相談を支援します。チョン・ジユンが企画・開発・デプロイした個人ポートフォリオです。
 
-J-CLEANINGは、清掃サービスを選択して参考見積もりを確認し、メールで受け取るためのポートフォリオ用Webアプリケーションです。顧客アカウント、管理者ログイン、お知らせ、下書き機能も含まれています。
+## システムが処理すること
 
-### 主な機能
+お客様が清掃の種類・場所・広さを選ぶと、サーバーが決められた基準で金額を計算し、画面に表示します。担当者が同じ計算を繰り返す手間を減らします。メール送信を依頼すると、お客様へ見積りを送り、事業者にもお客様のメールアドレスと見積内容を別途通知します。最終価格の確認と相談は人が担当します。
 
-- 入居前・引越し・居住中・商業施設・特殊・部分清掃の選択
-- 空間の種類と面積に基づく参考見積もり
-- 見積もりメールの送信リクエスト
-- 顧客登録、ログイン、トークン更新、ログアウト
-- 管理者によるお知らせ作成、下書き、一覧表示、削除
-- お知らせ一覧・詳細ページと施工写真ギャラリー
+`条件選択 → サーバーで計算 → 概算を表示 → メール依頼 → お客様への送信・事業者への通知`
 
-### 技術スタック
+## 主な機能
 
-- フロントエンド: Next.js 16、React 19、TypeScript、Tailwind CSS
-- バックエンド: Python、FastAPI、Pydantic、SQLAlchemy
-- データベース: PostgreSQL
-- 認証: JWTアクセストークン、HttpOnlyリフレッシュトークンCookie
+- 入居・引越し・居住中・店舗・特殊・部分清掃の条件別選択と概算計算
+- お客様向け見積メール、事業者向け依頼通知、会員登録案内と管理者通知
+- 会員登録・ログイン・アカウント検索・パスワード変更、JWT・更新トークン・ログアウト
+- 管理者の会員一覧、お知らせ作成・削除・下書き保存・再編集
+- お知らせ・下書き・会員一覧の10件単位ページ分割、詳細・前後の記事リンク
+- モバイルフォーム・ヘッダー、サービス画像、施工例ギャラリー
 
-### データの流れ
+## 問題と対応
 
-ブラウザーからNext.jsの`/api/*`へ送信されたリクエストは、rewriteによってFastAPIへ転送されます。APIは入力を検証し、見積もり計算またはPostgreSQLの読み書きを行い、JSONを返します。見積もり結果自体はデータベースに保存しません。
+| 問題 | 対応 |
+| --- | --- |
+| 会員登録の項目と既存テーブルが不一致 | 実際のスキーマを確認し、リクエストモデルとSQLを一致させた |
+| 入力済みでも未入力と判定 | value・onChangeを親の状態へ接続し、formのonSubmitで送信 |
+| 画面とAPIのパスが異なる | Next.js rewriteとBACKEND_URLで`/api`要求を転送 |
+| 開発中に閲覧数が2回増える | 開発モードの反復実行を確認しStrict Modeを調整。重複防止の強化は今後の課題 |
+| デプロイ後にSMTP送信が失敗 | Brevo HTTPS APIへ変更し、BackgroundTasksで送信 |
+| 見積メールがお客様にしか届かない | ADMIN_NOTIFICATION_EMAILを宛先とする事業者通知を追加 |
+| モバイル配置やダークモードの文字が崩れる | ライト配色、メニューとロゴの間隔、折り返しを調整 |
+| デバッグログに個人情報が残る | フロントのログを削除し、機密応答のキャッシュを制限 |
 
-### ローカル起動
+## 構成と起動
 
-1. PostgreSQLデータベースを作成し、`db/schema.sql`、続けて`db/refresh_tokens.sql`を実行します。
-2. DB、認証、管理者、SMTPの環境変数を`backend/config/.env`に設定します。実際の`.env`ファイルや秘密情報をGitHubに登録しないでください。
-3. `python -m pip install -r requirements.txt`でバックエンドの依存パッケージをインストールします。
-4. `backend`フォルダーでAPIを起動します。
+Next.js 16 · React 19 · TypeScript · Tailwind CSS / Python · FastAPI · Pydantic / PostgreSQL · SQLAlchemy / JWT · pwdlib · BackgroundTasks · Brevo
+
+- **Vercel**：画面を配信し、BACKEND_URLで`/api`要求をRenderへ転送。
+- **Render**：見積計算・認証・管理業務・メール要求を処理。
+- **Neon**：会員・お知らせ・下書き・トークンを保存。概算結果はDBに保存しない。
+
+`frontend/`：画面 · `backend/main.py`：API・計算・メール · `db/`：スキーマ
+
+`db/schema.sql`、`db/refresh_tokens.sql`を適用し、`backend/config/.env`にDB・認証設定を入力します。メール設定は`BREVO_API_KEY`、`BREVO_SENDER_EMAIL`、`BREVO_SENDER_NAME`、`ADMIN_NOTIFICATION_EMAIL`です。実際の秘密情報はRenderの環境変数に保存します。配信環境では`COOKIE_SECURE=true`を使用します。
 
 ```bash
+# backend フォルダー
+python -m pip install -r requirements.txt
 python -m uvicorn main:app --reload --port 8000
-```
-
-5. フロントエンドのパッケージをインストールし、`frontend/.env.local`に`BACKEND_URL=http://127.0.0.1:8000`を設定します。
-
-```bash
+# frontend フォルダー (.env.local: BACKEND_URL=http://127.0.0.1:8000)
 npm install
 npm run dev
 ```
 
-フロントエンドは`http://localhost:3000`、FastAPIのドキュメントは`http://127.0.0.1:8000/docs`で確認できます。
+## 対象範囲と今後の改善
 
-### デプロイ時の注意
-
-- VercelのRoot Directoryを`frontend`に設定し、`BACKEND_URL`にデプロイ済みFastAPIのURLを登録します。
-- Render Web ServiceのRoot Directoryを`backend`に設定します。ビルドコマンドを`pip install -r requirements.txt`に設定し、起動コマンドを`uvicorn main:app --host 0.0.0.0 --port $PORT`にします。
-- Neon PostgreSQLの接続情報をRenderの環境変数に登録します。`SESSION_SECRET`、管理者パスワードハッシュ、SMTPパスワードをソースコードやREADMEに書かないでください。
-- 本番環境では`COOKIE_SECURE=true`を設定し、FastAPIのCORS許可リストに実際のフロントエンドドメインを追加します。
-- Render無料Webサービスは、しばらくアクセスがないと停止する場合があります。また無料サービスからSMTPポート（25、465、587）へ直接接続できないため、無料プランでメールを送信する場合は別の対応方式が必要です。
-- デプロイ前に会員一覧画面のAPIパスとバックエンドのルートが一致しているか確認してください。
-
-### テストアカウント
-
-公開デモアカウントはまだ掲載していません。専用のテストアカウントを用意してから、その情報だけを追加してください。実際の利用者の氏名、メールアドレス、電話番号、生年月日、パスワードは公開しないでください。
+学習・ポートフォリオ用です。金額は例示であり、実際の清掃料金や契約ではありません。テストデータを使用してください。事業者通知にはお客様が入力したメールアドレスを含みますが、電話相談の受付機能は未実装です。BackgroundTasksによる処理のため、要求の受付と受信箱への到着は異なります。実運用前には相談への同意、リクエスト制限、再送・失敗追跡、安全なアカウント復旧を強化する必要があります。無料バックエンドは初回応答が遅くなる場合があります。

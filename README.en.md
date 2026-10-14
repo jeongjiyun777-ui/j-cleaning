@@ -1,62 +1,60 @@
-# J-CLEANING | Cleaning Estimate Portfolio
+# J-CLEANING | Cleaning Estimates and Request Notifications
 
 [한국어](README.md) · [English](README.en.md) · [日本語](README.ja.md)
 
-> A personal portfolio project. Estimates are illustrative. Please use test data rather than real personal information.
+[Live site](https://j-cleaning.vercel.app/)
 
-### Overview
+A web application that calculates an example cleaning estimate from customer selections and emails the result on request. It also notifies the business owner to support follow-up. Planned, developed, and deployed by Jiyun Jeong as a personal portfolio.
 
-J-CLEANING is a portfolio web application for selecting a cleaning service, viewing an illustrative estimate, and requesting the estimate by email. It also includes customer accounts, manager authentication, public notices, and notice drafts.
+## What the system handles
 
-### Features
+Customers select a cleaning service, space, and size. The server calculates a price using predefined rules and immediately shows the result, reducing repeated manual calculations. An email request sends the estimate to the customer and a separate notification with their email and estimate details to the owner. Final pricing and consultation remain human tasks.
 
-- Move-in, move-out, residence, commercial, special, and partial cleaning options
-- Example estimates based on space type and area
-- Email delivery request for an estimate
-- Customer registration, login, token refresh, and logout
-- Manager notice creation, drafts, listing, and deletion
-- Notice list/detail pages and a project photo gallery
+`Selections → server calculation → on-screen estimate → email request → customer email + owner notification`
 
-### Tech stack
+## Features
 
-- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS
-- Backend: Python, FastAPI, Pydantic, SQLAlchemy
-- Database: PostgreSQL
-- Authentication: JWT access tokens and an HttpOnly refresh-token cookie
+- Conditional selections for move-in, moving, occupied homes, commercial, specialist, and partial cleaning
+- Customer estimate emails, owner request alerts, registration confirmations and administrator alerts
+- Registration, login, account recovery, password changes, JWT and refresh tokens, logout
+- Administrator customer lists, notices, deletion, saved drafts, and draft editing
+- Ten-item pagination for notices, drafts, and customers; notice details and previous/next links
+- Mobile forms/header, service images, and a project gallery
 
-### Data flow
+## Problems and fixes
 
-The browser sends requests to Next.js under `/api/*`. Next.js rewrites them to FastAPI. The API validates input, calculates estimates or reads/writes PostgreSQL data, and returns JSON. Estimate results are not persisted in the database.
+| Problem | Change |
+| --- | --- |
+| Registration fields differed from the existing table | Inspected the actual schema and aligned request models with SQL fields |
+| Filled inputs were still reported empty | Connected value/onChange to parent state and submitted through form onSubmit |
+| Frontend and API paths differed | Routed `/api` requests through Next.js rewrites and BACKEND_URL |
+| View counts increased twice in development | Identified repeated development execution and adjusted Strict Mode; stronger duplicate protection remains needed |
+| SMTP failed after deployment | Switched to the Brevo HTTPS API and BackgroundTasks |
+| Only customers received estimate emails | Added a separate owner notification addressed to ADMIN_NOTIFICATION_EMAIL |
+| Mobile layout and dark-mode text broke | Fixed light-mode form colors, menu/logo spacing, and text wrapping |
+| Personal data appeared in debug logs | Removed frontend debug logs and restricted caching of sensitive responses |
 
-### Run locally
+## Architecture and local setup
 
-1. Create a PostgreSQL database and run `db/schema.sql`, followed by `db/refresh_tokens.sql`.
-2. Configure database, authentication, manager, and SMTP environment variables in `backend/config/.env`. Never commit the real `.env` file or secrets.
-3. Install backend dependencies with `python -m pip install -r requirements.txt`.
-4. Start the API from the `backend` directory:
+Next.js 16 · React 19 · TypeScript · Tailwind CSS / Python · FastAPI · Pydantic / PostgreSQL · SQLAlchemy / JWT · pwdlib · BackgroundTasks · Brevo
+
+- **Vercel** serves the UI and forwards `/api` through `BACKEND_URL` to Render.
+- **Render** calculates estimates and handles authentication, administration, and email requests.
+- **Neon** stores customers, notices, drafts, and tokens. Estimate results are not stored in the database.
+
+`frontend/`: UI · `backend/main.py`: API/calculation/email · `db/`: SQL schemas
+
+Apply `db/schema.sql` and `db/refresh_tokens.sql`, then set database/authentication values in `backend/config/.env`. Email configuration uses `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, and `ADMIN_NOTIFICATION_EMAIL`. Keep real secrets in Render environment variables. Use `COOKIE_SECURE=true` in deployment.
 
 ```bash
+# In backend/
+python -m pip install -r requirements.txt
 python -m uvicorn main:app --reload --port 8000
-```
-
-5. Install frontend packages and set `BACKEND_URL=http://127.0.0.1:8000` in `frontend/.env.local`:
-
-```bash
+# In frontend/ (.env.local: BACKEND_URL=http://127.0.0.1:8000)
 npm install
 npm run dev
 ```
 
-The frontend runs at `http://localhost:3000`; FastAPI docs are at `http://127.0.0.1:8000/docs`.
+## Scope and next improvements
 
-### Deployment notes
-
-- Set the Vercel Root Directory to `frontend` and configure `BACKEND_URL` with the deployed FastAPI URL.
-- Set the Render Web Service Root Directory to `backend`, use `pip install -r requirements.txt` as the build command and `uvicorn main:app --host 0.0.0.0 --port $PORT` as the start command.
-- Add Neon PostgreSQL connection details as Render environment variables. Keep `SESSION_SECRET`, manager password hashes, and SMTP credentials out of source control.
-- Set `COOKIE_SECURE=true` in production and add the production frontend origin to FastAPI's CORS allowlist.
-- Render free web services may sleep when idle. Render free services cannot connect directly to SMTP ports 25, 465, or 587; use a compatible email delivery method if email sending is needed on the free plan.
-- Verify that the member-list frontend API paths match the backend routes before deployment.
-
-### Demo account
-
-No public demo account is included yet. Add only a dedicated test account after preparing one. Never publish real users' names, email addresses, phone numbers, birth dates, or passwords.
+This is a learning/portfolio service. Prices are examples, not actual cleaning quotes or contracts; use test data. Owner notifications include the customer's submitted email; phone consultation requests are not implemented. BackgroundTasks processes delivery after the request, so acceptance does not mean inbox delivery. Production use requires consultation consent, request limits, retry/failure tracking, and stronger account recovery. The free backend may take time to wake up.
