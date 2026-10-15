@@ -67,9 +67,18 @@ function RegisterCompleteView() {
         <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row">
           <Link
             href="/"
-            className="flex-1 rounded-lg border border-slate-300 bg-white py-3.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+            className="group flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-4 text-lg font-bold text-slate-700 transition-all hover:bg-slate-50 active:scale-[0.98]"
           >
-            홈으로 가기
+            <span>홈으로 가기</span>
+            <svg
+              className="ml-1 inline h-5 w-5 transition-transform duration-200 group-hover:translate-x-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
           </Link>
           <Link
             href="/login"
