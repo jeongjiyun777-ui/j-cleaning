@@ -62,12 +62,28 @@ Next.js 16 · React 19 · TypeScript · Tailwind CSS / Python · FastAPI · Pyda
 
 ## Post-deployment validation — in progress
 
-Public-service validation and preparation for Locust load testing started on October 15, 2026. Load-test measurements have not yet been published.
+Preparation started on October 15, 2026. On November 4, I used Locust 2.47.0 to send estimate requests to the public Render API with one simulated user.
 
-- Start with 10 simulated users, then gradually increase load for scenarios such as public notices and estimate calculations.
-- Compare Locust response times, failure rates, and throughput with server-side CPU and RAM usage.
-- Separate tests from real visitors and exclude estimate/registration email delivery from load tests.
-- Record cold-start delays separately from sustained performance and use the findings to improve request limits, SQL, and delivery-failure tracking.
+| Setting / observation | Detail |
+| --- | --- |
+| Target | `https://j-cleaning-api.onrender.com/estimate` |
+| Input | Move-in cleaning · apartment · 10–20 pyeong |
+| Wait between tasks / read timeout | 1–3 seconds / 60 seconds |
+| Median observed during the run | Approximately 110ms (0.11 seconds) |
+| Observed failure | One `ReadTimeout`, reporting `read timeout=60` |
+
+These are preliminary observations under light load, not a final performance report or proof of high-load capacity. This endpoint calculates estimates without querying the database. Login, email delivery, and Vercel page rendering were not tested. CPU and RAM have not yet been measured.
+
+**Troubleshooting:** The failure entry confirmed a 60-second response wait timeout. A Render wake-up delay is a hypothesis, not a cause verified against server logs. For the next warm-server run, I will confirm a normal response before starting fresh statistics and keep cold-start measurements separately. The aim is to distinguish startup latency from sustained performance rather than hide failures.
+
+Test script: [`tests/load/locustfile.py`](tests/load/locustfile.py)
+
+```bash
+python -m pip install locust==2.47.0
+python -m locust -f tests/load/locustfile.py
+```
+
+Start in the Locust UI with `1` user and a spawn rate of `1` user per second. Next, increase gradually to 10 users and beyond, comparing response times, failure rates, throughput, and server-side CPU/RAM. Real email delivery is excluded from load tests.
 
 ## Scope and next improvements
 
