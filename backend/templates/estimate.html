@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+@font-face { font-family: NanumGothic; src: url("NanumGothic-Regular.ttf"); }
+@font-face { font-family: NanumGothic; src: url("NanumGothic-Bold.ttf"); font-weight: bold; }
+@page { size: A4; margin: 24mm 21mm; }
+body { font-family: NanumGothic; font-size: 11pt; color: #0f172a; line-height: 1.7; }
+.logo { width: 135pt; }
+.kicker { color: #059669; font-size: 9pt; margin-top: 22pt; margin-bottom: 6pt; }
+h1 { font-size: 25pt; font-weight: bold; margin: 0 0 6pt; }
+.date { color: #64748b; font-size: 9pt; margin-bottom: 24pt; }
+table { width: 100%; }
+td { padding: 14pt 15pt; border: 0.6pt solid #e2e8f0; vertical-align: middle; }
+.label { width: 32%; background-color: #f8fafc; color: #475569; }
+.value { width: 68%; }
+.amount-label { background-color: #ecfdf5; color: #065f46; font-weight: bold; }
+.amount-value { color: #047857; font-size: 19pt; font-weight: bold; }
+.notice { color: #64748b; font-size: 9pt; margin-top: 16pt; }
+.footer { color: #94a3b8; font-size: 8pt; margin-top: 36pt; }
+</style>
+</head>
+<body>
+<img class="logo" src="j-cleaning-logo.png" alt="제이클리닝">
+<p class="kicker">J-CLEANING · ESTIMATE</p>
+<h1>예상 견적서</h1>
+<p class="date">발행일 {{ issued_at }} · 선택하신 조건으로 산정한 예상 금액입니다.</p>
+<table>
+{% for label, value in rows %}
+<tr>
+<td class="label{% if loop.last %} amount-label{% endif %}">{{ label }}</td>
+<td class="value{% if loop.last %} amount-value{% endif %}">{{ value }}</td>
+</tr>
+{% endfor %}
+</table>
+<p class="notice">{{ message }}</p>
+<p class="footer">제이클리닝 | 공간을 바꾸는 가장 정직한 기준.</p>
+</body>
+</html>

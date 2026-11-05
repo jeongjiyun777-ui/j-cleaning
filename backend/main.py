@@ -6,8 +6,10 @@ from fastapi import BackgroundTasks, HTTPException, status, Depends
 from sqlalchemy import bindparam, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from email.message import EmailMessage
+from estimate_pdf import build_estimate_document
 
 import os
+import base64
 import jwt
 import requests
 import re
@@ -441,16 +443,26 @@ def send_email_in_background(email_message: EmailMessage):
         print("이메일 발송 실패: Brevo 설정 누락", flush=True)
         return
 
+    body = email_message.get_body(preferencelist=("plain",))
+    payload = {
+        "sender": {"email": sender_email, "name": sender_name},
+        "to": [{"email": str(email_message["To"]).strip()}],
+        "subject": str(email_message["Subject"]),
+        "textContent": body.get_content() if body else "",
+    }
+    attachments = [
+        {"name": part.get_filename(),
+         "content": base64.b64encode(part.get_payload(decode=True)).decode("ascii")}
+        for part in email_message.iter_attachments()
+    ]
+    if attachments:
+        payload["attachment"] = attachments
+
     try:
         response = requests.post(
             "https://api.brevo.com/v3/smtp/email",
             headers={"api-key": api_key, "Accept": "application/json"},
-            json={
-                "sender": {"email": sender_email, "name": sender_name},
-                "to": [{"email": str(email_message["To"]).strip()}],
-                "subject": str(email_message["Subject"]),
-                "textContent": email_message.get_content(),
-            },
+            json=payload,
             timeout=(5, 15),
             allow_redirects=False,
         )
@@ -507,7 +519,10 @@ def send_registration_emails(
     )
 
 
-def send_estimate_admin_notification(customer_email: str, estimate_content: str):
+def send_estimate_admin_notification(
+    customer_email: str, estimate_content: str, pdf: bytes | None = None,
+    filename: str = "j-cleaning-estimate.pdf",
+):
     admin_email = os.getenv("ADMIN_NOTIFICATION_EMAIL", "").strip()
     if not re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", admin_email):
         print("관리자 견적 알림 메일 생략: ADMIN_NOTIFICATION_EMAIL 설정 확인 필요", flush=True)
@@ -522,7 +537,30 @@ def send_estimate_admin_notification(customer_email: str, estimate_content: str)
         f"고객 이메일: {customer_email}\n\n"
         + estimate_content
     )
+    if pdf is not None:
+        admin_message.add_attachment(pdf, maintype="application", subtype="pdf", filename=filename)
     send_email_in_background(admin_message)
+
+
+def send_estimate_emails_in_background(customer_email: str, estimate: dict):
+    try:
+        document = build_estimate_document(estimate)
+    except Exception as error:
+        # Background processing has already returned 202; log no personal data.
+        print(f"견적 PDF 생성 실패: {type(error).__name__}", flush=True)
+        return
+
+    customer_message = EmailMessage()
+    customer_message["Subject"] = "제이클리닝 예상 견적 결과"
+    customer_message["To"] = customer_email.strip()
+    customer_message.set_content(document.text)
+    customer_message.add_attachment(
+        document.pdf, maintype="application", subtype="pdf", filename=document.filename,
+    )
+    send_email_in_background(customer_message)
+    send_estimate_admin_notification(
+        customer_email, document.text, document.pdf, document.filename,
+    )
 
 
 @app.post("/estimate/email", status_code=status.HTTP_202_ACCEPTED)
@@ -537,49 +575,10 @@ def email_estimate(
         )
 
     estimate = get_estimate(request)
-    cleaning_labels = {
-        "move_in": "입주 청소", "move_out": "이사 청소", "residence": "거주 청소",
-        "office": "상가/사무실", "special": "특수 청소", "partial": "부분 청소",
-    }
-    detail_labels = {
-        "apartment": "아파트", "villa": "빌라", "officetel": "오피스텔", "house": "주택",
-        "restaurant-cafe": "식당/카페", "academy-hospital": "학원/병원", "store": "일반 상가/매장",
-        "bathroom": "화장실 / 욕실 집중", "kitchen": "주방 / 싱크대 집중", "balcony": "창틀 / 베란다",
-        "floor": "방 바닥 / 거실 마루", "refrigerator": "냉장고 / 가전 내부",
-        "air-conditioner": "에어컨 필터 및 분해", "hoarding-home": "쓰레기집 / 방치 공간",
-        "large-waste": "대형 폐기물 수거", "estate-cleanout": "유품 정리 / 빈집 정리",
-        "fire-damage": "화재 / 그을음 현장", "water-damage": "누수 / 침수 피해 복구",
-        "pet-waste": "반려동물 오염 공간",
-    }
-    area_labels = {
-        "under-10": "10평 이하", "10-20": "10평 ~ 20평", "20-30": "20평 ~ 30평",
-        "30-40": "30평 ~ 40평", "40-50": "40평 ~ 50평", "over-50": "50평 이상",
-    }
-    amount = f"{estimate['estimated_amount']:,}원"
-    if estimate["is_starting_estimate"]:
-        amount += "부터"
-
-    email_message = EmailMessage()
-    email_message["Subject"] = "제이클리닝 예상 견적 결과"
-    email_message["To"] = request.recipient_email
-    email_message.set_content(
-        "안녕하세요. 제이클리닝 예상 견적 결과입니다.\n\n"
-        f"청소 종류: {cleaning_labels[request.cleaning_type]}\n"
-        f"공간 / 항목: {detail_labels.get(request.detail_type, request.detail_type)}\n"
-        f"면적: {area_labels.get(request.area_range, '해당 없음')}\n"
-        f"산정 기준: {estimate['calculation']}\n"
-        f"예상 금액: {amount}\n\n"
-        f"{estimate['message']}\n"
-    )
-
     background_tasks.add_task(
-        send_email_in_background,
-        email_message,
-    )
-    background_tasks.add_task(
-        send_estimate_admin_notification,
+        send_estimate_emails_in_background,
         request.recipient_email.strip(),
-        email_message.get_content(),
+        estimate,
     )
 
     return {"message": "견적 이메일 전송 요청을 접수했습니다. 잠시 후 받은 편지함을 확인해 주세요."}

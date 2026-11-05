@@ -7,3 +7,5 @@ python-dotenv
 PyJWT
 pwdlib[argon2]
 requests
+xhtml2pdf>=0.2.28,<0.3
+Jinja2>=3.1,<4

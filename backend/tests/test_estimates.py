@@ -57,15 +57,12 @@ def test_email_uses_same_amount_as_screen_and_correct_recipient(api, monkeypatch
     request = api.EstimateEmailRequest(cleaning_type='move_in',detail_type='apartment',area_range='20-30',recipient_email=' TEST@EXAMPLE.COM ')
     tasks = BackgroundTasks()
     api.email_estimate(request, tasks)
-    assert len(tasks.tasks) == 2
-    customer_task, admin_task = tasks.tasks
-    assert customer_task.func is api.send_email_in_background
-    message = customer_task.args[0]
-    assert message['To'] == 'test@example.com'
-    assert '300,000원' in message.get_content()
-    assert admin_task.func is api.send_estimate_admin_notification
-    assert admin_task.args[0] == 'test@example.com'
-    # BackgroundTasks를 실행하지 않아 실제 이메일은 전송하지 않습니다.
+    assert len(tasks.tasks) == 1
+    task = tasks.tasks[0]
+    assert task.func is api.send_estimate_emails_in_background
+    assert task.args[0] == 'test@example.com'
+    assert task.args[1]['estimated_amount'] == 300000
+    # PDF conversion and delivery happen only when the background task runs.
 
 @pytest.mark.parametrize('email', ['not-an-email','test@','test@example'])
 def test_invalid_email_rejected(api, email):
