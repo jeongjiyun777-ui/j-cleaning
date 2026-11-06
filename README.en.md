@@ -85,6 +85,12 @@ python -m locust -f tests/load/locustfile.py
 
 Start in the Locust UI with `1` user and a spawn rate of `1` user per second. Next, increase gradually to 10 users and beyond, comparing response times, failure rates, throughput, and server-side CPU/RAM. Real email delivery is excluded from load tests.
 
+### Learning Linux bottleneck analysis — 2026-11-06
+
+- Studied how to investigate slow responses before increasing instance capacity: CPU time percentages (`us/sy/id`), runnable processes (`r`), swap activity (`si/so`), and I/O-wait indicators (`wa/b`) in [`vmstat`](https://man7.org/linux/man-pages/man8/vmstat.8.html).
+- Plan to combine `top`, `free`, and `iostat` with request logs, SQL, and external API timings, then compare before/after behavior with Locust.
+- This records learning the tools and metrics, not a confirmed production bottleneck or demonstrated performance improvement. Local `vmstat` readings are distinct from resource metrics on the remote Render server.
+
 ## Scope and next improvements
 
 This is a learning/portfolio service. Prices are examples, not actual cleaning quotes or contracts; use test data. Owner notifications include the customer's submitted email; phone consultation requests are not implemented. BackgroundTasks processes delivery after the request, so acceptance does not mean inbox delivery. Production use requires consultation consent, request limits, retry/failure tracking, and stronger account recovery. The free backend may take time to wake up.
