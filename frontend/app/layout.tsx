@@ -15,6 +15,7 @@ const geistMono = Geist({
 });
 
 export const metadata: Metadata = {
+  icons: { icon: "/j-cleaning-logo.png" },
   title: "j-cleaning",
   description: "입주·이사·정기·특수 청소, 제이클리닝",
 };
